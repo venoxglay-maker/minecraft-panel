@@ -51,12 +51,13 @@ export async function POST(req: NextRequest) {
 
     const sessionId = createSession(username);
     const res = NextResponse.json({ ok: true, user });
+    const isHttps = req.nextUrl?.protocol === 'https:';
     res.cookies.set(SESSION_COOKIE, sessionId, {
       httpOnly: true,
       path: '/',
       maxAge: 60 * 60 * 24 * 7,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttps,
     });
     return res;
   } catch (e) {
