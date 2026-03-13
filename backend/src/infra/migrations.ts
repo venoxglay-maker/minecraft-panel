@@ -131,7 +131,7 @@ export async function runMigrations(pool: Pool) {
   `);
 
   const appliedResult = await pool.query<{ id: string }>("SELECT id FROM schema_migrations");
-  const applied = new Set(appliedResult.rows.map((r) => r.id));
+  const applied = new Set(appliedResult.rows.map((r: { id: string }) => r.id));
 
   for (const migration of migrations) {
     if (applied.has(migration.id)) {

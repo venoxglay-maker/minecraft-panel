@@ -126,14 +126,15 @@ export function registerFileRoutes(app: Express) {
       keepExtensions: true
     });
 
-    form.parse(req, async (err, _fields, files) => {
+    form.parse(req, async (err: Error | null, _fields: unknown, files: unknown) => {
       if (err) {
         console.error(err);
         return res.status(400).json({ error: "Upload failed" });
       }
       try {
         const targetDir = resolveServerPath(id, relPath);
-        const fileList = Array.isArray(files.file) ? files.file : [files.file].filter(Boolean);
+        const filesObj = files as formidable.Files;
+        const fileList = Array.isArray(filesObj.file) ? filesObj.file : [filesObj.file].filter(Boolean);
         for (const f of fileList as formidable.File[]) {
           const dest = path.join(targetDir, f.originalFilename || f.newFilename);
           await fs.mkdir(path.dirname(dest), { recursive: true });

@@ -48,7 +48,7 @@ export function registerAuthRoutes(app: Express) {
     }
     const { email, password, displayName } = parse.data;
     const existing = await pool.query("SELECT id FROM users WHERE email = $1", [email.toLowerCase()]);
-    if (existing.rowCount > 0) {
+    if ((existing.rowCount ?? 0) > 0) {
       return res.status(409).json({ error: "Email already in use" });
     }
     const hash = await bcrypt.hash(password, 10);

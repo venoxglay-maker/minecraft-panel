@@ -32,6 +32,12 @@ ufw allow 25565:25665/tcp || true
 
 echo "y" | ufw enable || true
 
+echo ">>> Erstelle .env falls nicht vorhanden..."
+if [ ! -f backend/.env ]; then
+  cp backend/.env.example backend/.env
+  echo "backend/.env aus .env.example erstellt."
+fi
+
 echo ">>> Starte Docker-Stack..."
 docker compose pull || true
 docker compose up -d
