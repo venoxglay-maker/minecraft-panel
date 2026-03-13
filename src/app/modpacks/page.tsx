@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Package, Search, RefreshCw, Upload, Heart, Cloud, Eye } from 'lucide-react';
 
 type ModrinthProject = {
@@ -66,7 +67,7 @@ export default function ModpacksPage() {
             className="flex items-center gap-2 rounded-lg border border-panel-border bg-panel-card px-4 py-2 text-sm text-panel-muted hover:bg-panel-border/50 hover:text-white"
           >
             <Heart className="h-4 w-4" />
-            Favorites (1)
+            Favoriten (0)
           </button>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -185,13 +186,12 @@ export default function ModpacksPage() {
                     <Eye className="h-4 w-4" />
                     View
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => window.location.href = `/servers?install=${encodeURIComponent(p.project_id)}&name=${encodeURIComponent(p.title)}`}
+                  <Link
+                    href={`/servers/new?modpack=${encodeURIComponent(p.project_id)}&name=${encodeURIComponent(p.title)}`}
                     className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-panel-accent py-2 text-sm font-medium text-white hover:bg-panel-accent-hover"
                   >
-                    Use in Server
-                  </button>
+                    Auf Server anwenden
+                  </Link>
                 </div>
               </div>
             ))}

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Users as UsersIcon, Plus, Trash2, Shield, User, Copy, RefreshCw, Server, LogIn, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { cn } from '@/lib/utils';
 import type { ServerItem } from '@/lib/servers';
 
 type UserRole = 'admin' | 'user';
@@ -241,130 +242,140 @@ export default function UsersPage() {
           </div>
         )}
         {showAdd && (
-          <div className="mb-6 rounded-xl border border-panel-border bg-panel-card p-6">
-            <h2 className="mb-4 text-lg font-medium text-white">Neues Konto anlegen</h2>
-            <form onSubmit={handleAddUser} className="space-y-4">
-              <div>
-                <label className="block text-sm text-panel-muted">Name (Anzeigename)</label>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="mt-1 w-full max-w-xs rounded-lg border border-panel-border bg-panel-bg px-3 py-2 text-white"
-                  placeholder="z. B. Max Mustermann"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-panel-muted">Benutzername (zum Anmelden)</label>
-                <input
-                  type="text"
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                  className="mt-1 w-full max-w-xs rounded-lg border border-panel-border bg-panel-bg px-3 py-2 text-white"
-                  placeholder="z. B. mmustermann"
-                />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <label className="block text-sm text-panel-muted">Passwort (wird generiert – an Person senden)</label>
-                  <button
-                    type="button"
-                    onClick={handleGeneratePassword}
-                    className="flex items-center gap-1 rounded border border-panel-border px-2 py-1 text-xs text-panel-muted hover:bg-panel-border/50 hover:text-white"
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                    Neu generieren
-                  </button>
-                </div>
-                <div className="mt-1 flex gap-2">
-                  <input
-                    type="text"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="flex-1 max-w-xs rounded-lg border border-panel-border bg-panel-bg px-3 py-2 font-mono text-sm text-white"
-                    placeholder="Klick auf Neu generieren"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleCopyCredentials(newUsername.trim() || '…', newPassword)}
-                    className="flex items-center gap-1 rounded-lg border border-panel-border bg-panel-bg px-3 py-2 text-sm text-panel-muted hover:bg-panel-border/50 hover:text-white"
-                  >
-                    <Copy className="h-4 w-4" />
-                    {generatedCopy ? 'Kopiert!' : 'Kopieren'}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm text-panel-muted">Rolle</label>
-                <select
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value as UserRole)}
-                  className="mt-1 w-full max-w-xs rounded-lg border border-panel-border bg-panel-bg px-3 py-2 text-white"
-                >
-                  <option value="admin">Admin (kann alles, alle Server)</option>
-                  <option value="user">Benutzer (Rechte + Server wählbar)</option>
-                </select>
-              </div>
-              {newRole === 'user' && (
-                <>
+          <div className="mb-6 rounded-xl border border-panel-border bg-panel-card shadow-lg">
+            <div className="border-b border-panel-border px-6 py-4">
+              <h2 className="text-lg font-semibold text-white">Neues Konto anlegen</h2>
+              <p className="mt-1 text-sm text-panel-muted">Zugangsdaten generieren und an die Person senden. Rolle und Server-Zugriff festlegen.</p>
+            </div>
+            <form onSubmit={handleAddUser} className="space-y-6 p-6">
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium uppercase tracking-wider text-panel-muted">Account</h3>
                   <div>
-                    <label className="block text-sm text-panel-muted">Rechte</label>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {PERMISSION_OPTIONS.map((p) => (
-                        <label key={p.id} className="flex cursor-pointer items-center gap-2 rounded border border-panel-border px-3 py-1.5 text-sm text-white hover:bg-panel-border/30">
-                          <input
-                            type="checkbox"
-                            checked={newPermissions.includes(p.id)}
-                            onChange={() => togglePerm(p.id, newPermissions, setNewPermissions)}
-                            className="rounded border-panel-border"
-                          />
-                          {p.label}
-                        </label>
-                      ))}
-                    </div>
+                    <label className="block text-sm font-medium text-white">Name (Anzeigename)</label>
+                    <input
+                      type="text"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-panel-border bg-panel-bg px-3 py-2 text-white focus:border-panel-accent focus:outline-none focus:ring-1 focus:ring-panel-accent"
+                      placeholder="z. B. Max Mustermann"
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm text-panel-muted">Zugriff auf Server</label>
-                    <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-white">
+                    <label className="block text-sm font-medium text-white">Benutzername (Login)</label>
+                    <input
+                      type="text"
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-panel-border bg-panel-bg px-3 py-2 text-white focus:border-panel-accent focus:outline-none focus:ring-1 focus:ring-panel-accent"
+                      placeholder="z. B. mmustermann"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white">Passwort</label>
+                    <div className="mt-1 flex gap-2">
                       <input
-                        type="checkbox"
-                        checked={newAllServers}
-                        onChange={(e) => {
-                          setNewAllServers(e.target.checked);
-                          if (e.target.checked) setNewServerSlugs([]);
-                        }}
-                        className="rounded border-panel-border"
+                        type="text"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="flex-1 rounded-lg border border-panel-border bg-panel-bg px-3 py-2 font-mono text-sm text-white focus:border-panel-accent focus:outline-none"
+                        placeholder="Generieren oder eingeben"
                       />
-                      Alle Server
-                    </label>
-                    {!newAllServers && servers.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {servers.map((s) => (
-                          <label key={s.slug} className="flex cursor-pointer items-center gap-2 rounded border border-panel-border px-3 py-1.5 text-sm text-white hover:bg-panel-border/30">
+                      <button
+                        type="button"
+                        onClick={handleGeneratePassword}
+                        className="flex items-center gap-1.5 rounded-lg border border-panel-border bg-panel-bg px-3 py-2 text-sm text-panel-muted hover:bg-panel-border/50 hover:text-white"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Generieren
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyCredentials(newUsername.trim() || '…', newPassword)}
+                        className="flex items-center gap-1.5 rounded-lg border border-panel-border bg-panel-bg px-3 py-2 text-sm text-panel-muted hover:bg-panel-border/50 hover:text-white"
+                        title="Zugangsdaten kopieren"
+                      >
+                        <Copy className="h-4 w-4" />
+                        {generatedCopy ? 'Kopiert' : 'Kopieren'}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-xs text-panel-muted">Mindestens 6 Zeichen. Nach dem Anlegen Zugangsdaten an die Person senden.</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white">Rolle</label>
+                    <select
+                      value={newRole}
+                      onChange={(e) => setNewRole(e.target.value as UserRole)}
+                      className="mt-1 w-full rounded-lg border border-panel-border bg-panel-bg px-3 py-2 text-white focus:border-panel-accent focus:outline-none focus:ring-1 focus:ring-panel-accent"
+                    >
+                      <option value="admin">Admin – voller Zugriff auf alle Server</option>
+                      <option value="user">Benutzer – Rechte und Server einzeln wählbar</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  {newRole === 'user' && (
+                    <>
+                      <h3 className="text-sm font-medium uppercase tracking-wider text-panel-muted">Rechte</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {PERMISSION_OPTIONS.map((p) => (
+                          <label key={p.id} className="flex cursor-pointer items-center gap-2 rounded-lg border border-panel-border bg-panel-bg/50 px-3 py-2 text-sm text-white hover:bg-panel-border/30">
                             <input
                               type="checkbox"
-                              checked={newServerSlugs.includes(s.slug)}
-                              onChange={() => toggleServerSlug(s.slug, newServerSlugs, setNewServerSlugs)}
-                              className="rounded border-panel-border"
+                              checked={newPermissions.includes(p.id)}
+                              onChange={() => togglePerm(p.id, newPermissions, setNewPermissions)}
+                              className="rounded border-panel-border text-panel-accent focus:ring-panel-accent"
                             />
-                            <Server className="h-3.5 w-3.5" />
-                            {s.name}
+                            {p.label}
                           </label>
                         ))}
                       </div>
-                    )}
-                    {!newAllServers && servers.length === 0 && (
-                      <p className="mt-1 text-xs text-panel-muted">Keine Server vorhanden. Erst Server anlegen, dann Zugriff zuweisen.</p>
-                    )}
-                  </div>
-                </>
+                      <h3 className="pt-2 text-sm font-medium uppercase tracking-wider text-panel-muted">Server-Zugriff</h3>
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-panel-border bg-panel-bg/50 px-3 py-2 text-sm text-white hover:bg-panel-border/30">
+                        <input
+                          type="checkbox"
+                          checked={newAllServers}
+                          onChange={(e) => {
+                            setNewAllServers(e.target.checked);
+                            if (e.target.checked) setNewServerSlugs([]);
+                          }}
+                          className="rounded border-panel-border text-panel-accent focus:ring-panel-accent"
+                        />
+                        Alle Server
+                      </label>
+                      {!newAllServers && servers.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {servers.map((s) => (
+                            <label key={s.slug} className="flex cursor-pointer items-center gap-2 rounded-lg border border-panel-border bg-panel-bg/50 px-3 py-2 text-sm text-white hover:bg-panel-border/30">
+                              <input
+                                type="checkbox"
+                                checked={newServerSlugs.includes(s.slug)}
+                                onChange={() => toggleServerSlug(s.slug, newServerSlugs, setNewServerSlugs)}
+                                className="rounded border-panel-border text-panel-accent focus:ring-panel-accent"
+                              />
+                              <Server className="h-4 w-4 shrink-0 text-panel-muted" />
+                              {s.name}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      {!newAllServers && servers.length === 0 && (
+                        <p className="text-xs text-panel-muted">Keine Server vorhanden. Zuerst Server anlegen.</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+              {error && (
+                <div className="rounded-lg border border-panel-red/50 bg-panel-red/10 px-4 py-2 text-sm text-panel-red">
+                  {error}
+                </div>
               )}
-              {error && <p className="text-sm text-panel-red">{error}</p>}
-              <div className="flex gap-2">
-                <button type="submit" className="rounded-lg bg-panel-accent px-4 py-2 text-sm text-white hover:bg-panel-accent-hover">
+              <div className="flex gap-3 border-t border-panel-border pt-4">
+                <button type="submit" className="rounded-lg bg-panel-accent px-5 py-2.5 text-sm font-medium text-white hover:bg-panel-accent-hover">
                   Konto anlegen
                 </button>
-                <button type="button" onClick={() => setShowAdd(false)} className="rounded-lg border border-panel-border px-4 py-2 text-sm text-panel-muted hover:bg-panel-border/30">
+                <button type="button" onClick={() => setShowAdd(false)} className="rounded-lg border border-panel-border px-5 py-2.5 text-sm text-panel-muted hover:bg-panel-border/50 hover:text-white">
                   Abbrechen
                 </button>
               </div>
@@ -372,33 +383,54 @@ export default function UsersPage() {
           </div>
         )}
 
-        <div className="rounded-xl border border-panel-border bg-panel-card">
-          <div className="border-b border-panel-border px-4 py-3">
-            <h2 className="text-sm font-medium text-white">Alle Benutzer ({users.length})</h2>
+        <div className="rounded-xl border border-panel-border bg-panel-card overflow-hidden">
+          <div className="border-b border-panel-border bg-panel-bg/50 px-6 py-4">
+            <h2 className="text-base font-semibold text-white">Alle Benutzer</h2>
+            <p className="mt-0.5 text-sm text-panel-muted">{users.length} Konto{users.length !== 1 ? 's' : ''} – Rechte und Server-Zugriff bearbeiten.</p>
           </div>
           {users.length === 0 ? (
-            <div className="p-8 text-center text-sm text-panel-muted">Keine Benutzer außer dem Admin.</div>
+            <div className="p-12 text-center text-sm text-panel-muted">Noch keine weiteren Benutzer. Lege ein Konto an und weise Rechte zu.</div>
           ) : (
-            <ul className="divide-y divide-panel-border">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-panel-border text-left text-xs font-medium uppercase tracking-wider text-panel-muted">
+                    <th className="px-6 py-3">Benutzer</th>
+                    <th className="px-6 py-3">Rolle</th>
+                    <th className="px-6 py-3">Server-Zugriff</th>
+                    <th className="px-6 py-3 text-right">Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-panel-border">
               {users.map((u) => (
-                <li key={u.username} className="flex items-center justify-between gap-4 px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-panel-bg">
-                      {u.role === 'admin' ? <Shield className="h-5 w-5 text-amber-400" /> : <User className="h-5 w-5 text-panel-muted" />}
+                <tr key={u.username} className="hover:bg-panel-bg/30">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-panel-bg">
+                        {u.role === 'admin' ? <Shield className="h-5 w-5 text-amber-400" /> : <User className="h-5 w-5 text-panel-muted" />}
+                      </div>
+                      <div>
+                        <p className="font-medium text-white">{u.name || u.username}</p>
+                        <p className="text-xs text-panel-muted">{u.username}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-white">{u.name || u.username}</p>
-                      <p className="text-xs text-panel-muted">
-                        {u.username}
-                        {u.role === 'user' && ` · ${(u.permissions || []).length} Rechte`}
-                      </p>
-                      <p className="mt-0.5 flex items-center gap-1 text-xs text-panel-muted">
-                        <Server className="h-3 w-3" />
-                        {formatServerAccess(u)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={cn(
+                      'inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium',
+                      u.role === 'admin' ? 'bg-amber-500/20 text-amber-400' : 'bg-panel-bg text-panel-muted'
+                    )}>
+                      {u.role === 'admin' ? 'Admin' : 'Benutzer'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-panel-muted">
+                    <span className="flex items-center gap-1">
+                      <Server className="h-3.5 w-3.5 shrink-0" />
+                      {formatServerAccess(u)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
                     {editRole?.user === u.username ? (
                       <div className="flex flex-wrap items-center gap-2">
                         <select
@@ -512,10 +544,13 @@ export default function UsersPage() {
                         )}
                       </>
                     )}
-                  </div>
-                </li>
+                    </div>
+                  </td>
+                </tr>
               ))}
-            </ul>
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>

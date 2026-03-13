@@ -7,8 +7,12 @@
 - **Nur Panel (empfohlen):** **Ubuntu 22.04 (Jammy) 64-bit** oder **Debian 12 (Bookworm) 64-bit** – Standard **ohne** vorinstalliertes Java.  
   Das Panel läuft mit Node.js, Java brauchst du dafür nicht.
 
-- **Panel + später Minecraft auf demselben Rechner:**  
-  **Ubuntu 22.04** oder **Debian 11/12** mit **Java 17 vorinstalliert** – dann ist Java schon da, wenn du Minecraft-Server-Prozesse auf dieser Maschine startest.
+- **Panel + echte Minecraft-Server auf demselben Rechner:**  
+  **Ubuntu 22.04** oder **Debian 11/12** mit **Java 17** – das Panel startet echte Minecraft-Server-Prozesse. Java installieren:
+  ```bash
+  sudo apt update && sudo apt install -y openjdk-17-jdk
+  ```
+  Optional `JAVA_HOME` setzen (z. B. in `.env.local`): `JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64`
 
 - **Alternativen:** Debian 11, Ubuntu 20.04 (beide 64-bit) funktionieren ebenfalls.  
   Windows Server oder CentOS sind möglich, die Anleitung unten ist aber für **Linux (Debian/Ubuntu)** geschrieben.
@@ -73,6 +77,8 @@
    - Beim ersten Mal erscheint die **Einrichtung**: Admin-Benutzername und Passwort anlegen.
    - Danach mit diesen Daten **anmelden**.
 
+   **Minecraft-Server (echt):** Beim Anlegen eines Servers lädt das Panel das Server-JAR von Mojang herunter und legt das Verzeichnis unter `data/servers/<slug>/` an. Start/Stop/Konsole und Dateien beziehen sich auf diesen echten Prozess. Dafür muss **Java** auf dem Rechner installiert sein (siehe oben).
+
 9. **Firewall (falls Port 3000 nicht erreichbar)**
    ```bash
    sudo ufw allow 3000/tcp
@@ -82,8 +88,80 @@
 10. **Daten-Persistenz**  
    Server und Benutzer werden unter `./data/` gespeichert:
    - `data/servers.json` – angelegte Minecraft-Server
-   - `data/users.json` – Benutzer und Admin  
+   - `data/users.json` – Benutzer und Admin
+   - `data/settings.json` – Einstellungen (Routing, Basis-Domain)
+   - `data/activity.json` – Letzte Aktivitäten
+   - `data/servers/<slug>/` – Verzeichnis pro Minecraft-Server (JAR, Welten, mods, …)  
    Diesen Ordner für Backups sichern und nicht löschen.
+
+---
+
+## Neue Version auf den Server bringen (Update)
+
+Wenn du den Code auf deinem PC änderst und die neue Version auf dem Server nutzen willst:
+
+### 1. Auf dem PC: Änderungen pushen
+
+```bash
+cd C:\Users\venox\Desktop\minecraft_panel
+git add .
+git commit -m "Neue Version"
+git push origin main
+```
+
+### 2. Auf dem Server: Projekt aktualisieren und neu starten
+
+Per SSH einloggen und ins Projektverzeichnis wechseln (Pfad anpassen, z. B. `~/minecraft-panel` oder `/opt/laxpanel`):
+
+```bash
+ssh root@DEINE-SERVER-IP
+cd ~/minecraft-panel
+```
+
+Dann:
+
+```bash
+# Neuesten Code holen
+git pull origin main
+
+# Abhängigkeiten aktualisieren (falls sich package.json geändert hat)
+npm install
+
+# Alten Build löschen und neu bauen (wichtig!)
+rm -rf .next
+npm run build
+```
+
+**Panel neu starten:**
+
+- **Ohne systemd** (läuft im Terminal):
+  - Strg+C zum Stoppen, dann:
+  ```bash
+  npm run start
+  ```
+
+- **Mit systemd:**
+  ```bash
+  sudo systemctl restart laxpanel
+  sudo systemctl status laxpanel
+  ```
+
+### Kurz-Checkliste (Copy & Paste)
+
+```bash
+cd ~/minecraft-panel
+git pull origin main
+npm install
+rm -rf .next
+npm run build
+sudo systemctl restart laxpanel
+```
+
+(Den letzten Befehl weglassen, wenn du das Panel nicht als systemd-Service laufen hast – dann per Hand `npm run start` ausführen.)
+
+**Hinweis:** Beim Update bleibt der Ordner `data/` unverändert. Deine Server, Benutzer und Einstellungen bleiben erhalten.
+
+---
 
 ## Als Systemdienst (systemd)
 
@@ -140,4 +218,4 @@ server {
 
 ## Hinweis
 
-Das Panel speichert **nur die Konfiguration** der Minecraft-Server (Name, Version, Status usw.). Die eigentliche Erstellung und Steuerung von Minecraft-Server-Prozessen (Start/Stop/Neustart) muss später durch ein Backend (z. B. Docker, systemd) umgesetzt werden. Die Oberfläche und Logik dafür sind vorbereitet.
+Das Panel erstellt und steuert **echte** Minecraft-Server-Prozesse (Start/Stop über Java, Konsole, Dateien, Mods, Welten). Dafür muss auf dem Host **Java** installiert sein (siehe oben). Die Daten liegen unter `data/`.

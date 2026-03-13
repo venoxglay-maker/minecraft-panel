@@ -59,3 +59,83 @@ export async function writeUsers(data: UsersData): Promise<void> {
   await ensureDataDir();
   await fs.writeFile(USERS_FILE, JSON.stringify(data, null, 2), 'utf-8');
 }
+
+// --- Settings (Proxy, Routing, Defaults) ---
+export interface ListenerItem {
+  id: string;
+  name: string;
+  port: string;
+  default?: boolean;
+  serverCount?: number;
+}
+
+export interface PanelSettings {
+  baseDomain: string;
+  proxyEnabled: boolean;
+  listeners: ListenerItem[];
+  activeRoutes: Record<string, string>; // serverSlug -> hostname
+}
+
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+
+export async function readSettings(): Promise<PanelSettings> {
+  await ensureDataDir();
+  try {
+    const raw = await fs.readFile(SETTINGS_FILE, 'utf-8');
+    const data = JSON.parse(raw);
+    return {
+      baseDomain: data.baseDomain ?? 'play.laxpanel.app',
+      proxyEnabled: Boolean(data.proxyEnabled),
+      listeners: Array.isArray(data.listeners) ? data.listeners : [],
+      activeRoutes: data.activeRoutes && typeof data.activeRoutes === 'object' ? data.activeRoutes : {},
+    };
+  } catch {
+    return {
+      baseDomain: 'play.laxpanel.app',
+      proxyEnabled: false,
+      listeners: [],
+      activeRoutes: {},
+    };
+  }
+}
+
+export async function writeSettings(settings: PanelSettings): Promise<void> {
+  await ensureDataDir();
+  await fs.writeFile(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
+}
+
+// --- Activity Log (Dashboard Recent Activity) ---
+export interface ActivityEntry {
+  id: string;
+  text: string;
+  slug?: string;
+  type: 'start' | 'stop' | 'restart' | 'create' | 'delete';
+  at: string; // ISO
+}
+
+const ACTIVITY_FILE = path.join(DATA_DIR, 'activity.json');
+const MAX_ACTIVITY = 100;
+
+export async function readActivity(): Promise<ActivityEntry[]> {
+  await ensureDataDir();
+  try {
+    const raw = await fs.readFile(ACTIVITY_FILE, 'utf-8');
+    const data = JSON.parse(raw);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function appendActivity(entry: Omit<ActivityEntry, 'id' | 'at'>): Promise<void> {
+  await ensureDataDir();
+  const list = await readActivity();
+  const newEntry: ActivityEntry = {
+    ...entry,
+    id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    at: new Date().toISOString(),
+  };
+  list.unshift(newEntry);
+  const trimmed = list.slice(0, MAX_ACTIVITY);
+  await fs.writeFile(ACTIVITY_FILE, JSON.stringify(trimmed, null, 2), 'utf-8');
+}

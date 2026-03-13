@@ -1,42 +1,54 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
 import { Activity, Copy, Info, Gauge } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getStatusLabel, getStatusColor } from '@/lib/servers';
 import { useServerDetail } from '@/contexts/ServerDetailContext';
 
-const MINECRAFT_DEFAULT_PORT = 25565;
-
-const defaultServerInfo = [
-  { label: 'Minecraft', value: '1.12.2' },
-  { label: 'Java', value: 'Java 8' },
-  { label: 'ModLoader', value: 'Auto: Curseforge' },
-  { label: 'Server ID', value: 'a7b700b0-dce...' },
-  { label: 'Container', value: '520c000d47d...' },
-  { label: 'Data Path', value: '.../servers/...' },
-];
-
-const defaultPerformance = [
-  { label: 'MEMORY', value: '5.85 / 12.0 GB', pct: 48.8, color: 'bg-amber-600' },
-  { label: 'CPU', value: '6.24% used', pct: 6.24, color: 'bg-panel-blue' },
-  { label: 'STORAGE', value: '0.0% of 847.06 GB', pct: 0, color: 'bg-panel-muted' },
-  { label: 'PLAYERS', value: '0/20', pct: 0, color: 'bg-panel-blue' },
-  { label: 'TPS', value: '20.0', pct: 100, color: 'bg-panel-green' },
-];
+interface Stats {
+  cpu: number;
+  memoryUsedMb: number;
+  memoryTotalMb: number;
+  memoryPct: number;
+  playersOnline: number;
+  playersMax: number;
+  tps: string;
+}
 
 export default function ServerOverviewPage() {
-  const params = useParams();
   const [copied, setCopied] = useState(false);
   const [address, setAddress] = useState<string>('…');
+  const [stats, setStats] = useState<Stats | null>(null);
   const { server } = useServerDetail();
 
+  const port = server?.port ?? 25565;
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const host = window.location.hostname;
-    setAddress(`${host}:${MINECRAFT_DEFAULT_PORT}`);
-  }, []);
+    setAddress(`${host}:${port}`);
+  }, [port]);
+
+  useEffect(() => {
+    if (!server?.slug || server.status !== 'running') {
+      setStats(null);
+      return;
+    }
+    const fetchStats = async () => {
+      try {
+        const res = await fetch(`/api/servers/${server.slug}/stats`, { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setStats(data);
+        }
+      } catch {
+        setStats(null);
+      }
+    };
+    fetchStats();
+    const interval = setInterval(fetchStats, 3000);
+    return () => clearInterval(interval);
+  }, [server?.slug, server?.status]);
 
   const copyAddress = async () => {
     try {
@@ -48,11 +60,48 @@ export default function ServerOverviewPage() {
     }
   };
 
+  const memoryUsedGb = stats ? (stats.memoryUsedMb / 1024).toFixed(2) : '0.00';
+  const memoryTotalMb = server?.memoryMb ?? 2048;
+  const memoryTotalGb = (stats?.memoryTotalMb ?? memoryTotalMb) / 1024;
+  const serverInfo = [
+    { label: 'Minecraft', value: server?.version ?? '–' },
+    { label: 'Java', value: 'System Java' },
+    { label: 'Port', value: String(port) },
+    { label: 'Arbeitsverzeichnis', value: server?.workDir ? '…/servers/' + server.slug : '–' },
+  ];
+
+  const performance = [
+    {
+      label: 'MEMORY',
+      value: `${memoryUsedGb} / ${memoryTotalGb.toFixed(2)} GB`,
+      pct: stats?.memoryPct ?? 0,
+      color: (stats?.memoryPct ?? 0) > 90 ? 'bg-panel-red' : (stats?.memoryPct ?? 0) > 70 ? 'bg-amber-600' : 'bg-panel-blue',
+    },
+    {
+      label: 'CPU',
+      value: stats ? `${stats.cpu}% used` : '0% used',
+      pct: Math.min(stats?.cpu ?? 0, 100),
+      color: 'bg-panel-blue',
+    },
+    {
+      label: 'PLAYERS',
+      value: stats ? `${stats.playersOnline}/${stats.playersMax}` : `${server?.playersOnline ?? 0}/${server?.playersMax ?? 20}`,
+      pct: stats && stats.playersMax > 0 ? (stats.playersOnline / stats.playersMax) * 100 : 0,
+      color: 'bg-panel-blue',
+    },
+    {
+      label: 'TPS',
+      value: stats?.tps ?? server?.tps ?? '20.0',
+      pct: 100,
+      color: 'bg-panel-green',
+    },
+  ];
+
   return (
     <div className="space-y-6 p-8">
       <div className="mb-2">
         <h2 className="text-lg font-semibold text-white">Overview</h2>
-        <p className="text-sm text-panel-muted">Status, Verbindung, Server-Infos und Performance auf einen Blick.</p>
+        <p className="text-sm text-panel-muted">Status, Verbindung, Server-Infos und Performance (live).</p>
       </div>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-panel-border bg-panel-card p-5">
@@ -98,7 +147,7 @@ export default function ServerOverviewPage() {
             </button>
           </div>
           <p className="mt-1 text-xs text-panel-muted">
-            {copied ? 'Copied to clipboard' : 'Click to copy'}
+            {copied ? 'In Zwischenablage kopiert' : 'Klicken zum Kopieren'}
           </p>
         </div>
 
@@ -108,7 +157,7 @@ export default function ServerOverviewPage() {
             <span className="text-xs font-medium uppercase tracking-wider">SERVER INFO</span>
           </div>
           <dl className="mt-2 space-y-1 text-sm">
-            {defaultServerInfo.map((row) => (
+            {serverInfo.map((row) => (
               <div key={row.label} className="flex justify-between gap-2">
                 <dt className="text-panel-muted">{row.label}</dt>
                 <dd className="truncate text-white">{row.value}</dd>
@@ -123,7 +172,7 @@ export default function ServerOverviewPage() {
             <span className="text-xs font-medium uppercase tracking-wider">PERFORMANCE</span>
           </div>
           <div className="mt-2 space-y-2">
-            {defaultPerformance.map((p) => (
+            {performance.map((p) => (
               <div key={p.label}>
                 <div className="flex justify-between text-xs">
                   <span className="text-panel-muted">{p.label}</span>

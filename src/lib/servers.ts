@@ -9,6 +9,14 @@ export interface ServerItem {
   playersMax: number;
   tps: string;
   status: ServerStatus;
+  /** Minecraft-Port (z. B. 25565) */
+  port?: number;
+  /** RAM in MB (z. B. 2048) */
+  memoryMb?: number;
+  /** Prozess-ID wenn der Server läuft */
+  pid?: number;
+  /** Arbeitsverzeichnis (z. B. data/servers/slug) */
+  workDir?: string;
 }
 
 export function getStatusLabel(status: ServerStatus): string {

@@ -1,27 +1,61 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'next/navigation';
 import { Globe, Plus, Trash2, RefreshCw, Upload } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type WorldEntry = { id: string; name: string; size: string; lastPlayed: string };
 
-const MOCK_WORLDS: WorldEntry[] = [
-  { id: '1', name: 'world', size: '256 MB', lastPlayed: 'Vor 2 Std.' },
-  { id: '2', name: 'world_nether', size: '128 MB', lastPlayed: 'Vor 2 Std.' },
-  { id: '3', name: 'world_the_end', size: '64 MB', lastPlayed: 'Vor 2 Std.' },
-];
-
 export default function ServerWeltenPage() {
-  const [worlds, setWorlds] = useState<WorldEntry[]>(MOCK_WORLDS);
+  const params = useParams();
+  const slug = params?.slug as string;
+  const [worlds, setWorlds] = useState<WorldEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleDelete = (id: string, name: string) => {
-    if (!confirm(`Welt „${name}“ wirklich löschen?`)) return;
+  const fetchWorlds = useCallback(async () => {
+    if (!slug) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/servers/${slug}/worlds`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setWorlds(Array.isArray(data) ? data : []);
+      } else setWorlds([]);
+    } catch {
+      setWorlds([]);
+      setError('Welten konnten nicht geladen werden.');
+    } finally {
+      setLoading(false);
+    }
+  }, [slug]);
+
+  useEffect(() => {
+    fetchWorlds();
+  }, [fetchWorlds]);
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Welt „${name}“ wirklich löschen? Der Ordner wird unwiderruflich entfernt.`)) return;
     setDeleting(id);
-    setTimeout(() => {
-      setWorlds((prev) => prev.filter((w) => w.id !== id));
+    setError(null);
+    try {
+      const res = await fetch(`/api/servers/${slug}/worlds?name=${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (res.ok) await fetchWorlds();
+      else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.message || 'Löschen fehlgeschlagen.');
+      }
+    } catch {
+      setError('Löschen fehlgeschlagen.');
+    } finally {
       setDeleting(null);
-    }, 400);
+    }
   };
 
   return (
@@ -29,34 +63,45 @@ export default function ServerWeltenPage() {
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-white">Welten</h2>
         <p className="text-sm text-panel-muted">
-          Welten löschen, ersetzen oder neue Welten hinzufügen. Änderungen wirken nach Server-Neustart.
+          Welten aus dem Server-Verzeichnis. Löschen entfernt den Ordner dauerhaft. Neue Welten entstehen beim ersten Start mit level-name in server.properties.
         </p>
       </div>
+
+      {error && (
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
+          {error}
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap gap-2">
         <button
           type="button"
-          className="flex items-center gap-2 rounded-lg border border-panel-border bg-panel-card px-4 py-2 text-sm text-white hover:bg-panel-border/50"
+          onClick={fetchWorlds}
+          disabled={loading}
+          className="flex items-center gap-2 rounded-lg border border-panel-border bg-panel-card px-4 py-2 text-sm text-white hover:bg-panel-border/50 disabled:opacity-50"
         >
+          <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+          Aktualisieren
+        </button>
+        <span className="flex items-center gap-2 rounded-lg border border-panel-border bg-panel-card px-4 py-2 text-sm text-panel-muted">
           <Upload className="h-4 w-4" />
-          Welt ersetzen / hochladen
-        </button>
-        <button
-          type="button"
-          className="flex items-center gap-2 rounded-lg border border-panel-border bg-panel-card px-4 py-2 text-sm text-white hover:bg-panel-border/50"
-        >
+          Welt ersetzen / hochladen — (Upload per Dateimanager unter Files)
+        </span>
+        <span className="flex items-center gap-2 rounded-lg border border-panel-border bg-panel-card px-4 py-2 text-sm text-panel-muted">
           <Plus className="h-4 w-4" />
-          Neue Welt hinzufügen
-        </button>
+          Neue Welt — level-name in server.properties setzen, dann Server starten
+        </span>
       </div>
 
       <div className="rounded-xl border border-panel-border bg-panel-card">
         <div className="border-b border-panel-border px-4 py-3">
           <h3 className="text-sm font-medium text-white">Vorhandene Welten ({worlds.length})</h3>
         </div>
-        {worlds.length === 0 ? (
+        {loading ? (
+          <div className="p-8 text-center text-sm text-panel-muted">Laden…</div>
+        ) : worlds.length === 0 ? (
           <div className="p-8 text-center text-sm text-panel-muted">
-            Keine Welten. Füge eine Welt hinzu oder lade eine hoch.
+            Keine Welt-Ordner gefunden. Starte den Server einmal, damit die Standard-Welt (world) erzeugt wird.
           </div>
         ) : (
           <ul className="divide-y divide-panel-border">
@@ -73,13 +118,6 @@ export default function ServerWeltenPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="rounded p-2 text-panel-muted hover:bg-panel-border hover:text-white"
-                    title="Welt zurücksetzen"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </button>
                   <button
                     type="button"
                     onClick={() => handleDelete(w.id, w.name)}

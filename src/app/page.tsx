@@ -11,7 +11,6 @@ import {
   Gauge,
   Circle,
   Zap,
-  Check,
   HardDrive,
   ExternalLink,
   Bug,
@@ -23,24 +22,53 @@ import type { ServerItem } from '@/lib/servers';
 import { getStatusLabel, getStatusColor } from '@/lib/servers';
 import { useAuth, canAccessServer } from '@/contexts/AuthContext';
 
-const DISCORD_URL = 'https://discord.gg/example';
 const DOCS_URL = 'https://docs.laxpanel.app';
-const ISSUES_URL = 'https://github.com/disco-panel/panel/issues';
+const ISSUES_URL = 'https://github.com/laxpanel/panel/issues';
+
+type DashboardStats = {
+  totalServers: number;
+  activeServers: number;
+  totalPlayers: number;
+  usedMemoryMb: number;
+  allocatedMb: number;
+  cpuPct: number;
+  diskFree: string;
+  version: string;
+  hostname: string;
+};
+
+type ActivityEntry = { id: string; text: string; type: string; at: string };
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [servers, setServers] = useState<ServerItem[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchServers = async () => {
+  const fetchData = async () => {
     try {
-      const res = await fetch('/api/servers', { credentials: 'include' });
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : [];
+      const [serversRes, statsRes, activityRes] = await Promise.all([
+        fetch('/api/servers', { credentials: 'include' }),
+        fetch('/api/dashboard', { credentials: 'include' }),
+        fetch('/api/activity', { credentials: 'include' }),
+      ]);
+      const serversData = await serversRes.json();
+      const list = Array.isArray(serversData) ? serversData : [];
       setServers(list.filter((s: ServerItem) => canAccessServer(user, s.slug)));
+      if (statsRes.ok) {
+        const s = await statsRes.json();
+        setStats(s);
+      } else setStats(null);
+      if (activityRes.ok) {
+        const a = await activityRes.json();
+        setActivity(Array.isArray(a) ? a : []);
+      } else setActivity([]);
     } catch {
       setServers([]);
+      setStats(null);
+      setActivity([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -48,59 +76,63 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchServers();
+    fetchData();
   }, []);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchServers();
+    fetchData();
   };
 
-  const totalServers = servers.length;
-  const activeServers = servers.filter((s) => s.status === 'running').length;
-  const totalPlayers = servers.reduce((acc, s) => acc + s.playersOnline, 0);
-  const totalMemory = 32;
-  const usedMemory = 15.3;
+  const totalServers = stats?.totalServers ?? servers.length;
+  const activeServers = stats?.activeServers ?? servers.filter((s) => s.status === 'running').length;
+  const totalPlayers = stats?.totalPlayers ?? servers.reduce((acc, s) => acc + (s.playersOnline ?? 0), 0);
+  const usedMemoryGb = stats ? (stats.usedMemoryMb / 1024).toFixed(1) : '0';
+  const allocatedGb = stats ? (stats.allocatedMb / 1024).toFixed(1) : '0';
+  const cpuPct = stats?.cpuPct ?? 0;
 
   const metrics = [
     {
       title: 'TOTAL SERVERS',
       value: String(totalServers),
-      sub: `- ${activeServers} active`,
+      sub: `- ${activeServers} aktiv`,
       icon: Server,
       iconClass: 'text-panel-muted',
     },
     {
       title: 'ACTIVE PLAYERS',
       value: String(totalPlayers),
-      sub: 'players online',
+      sub: 'Spieler online',
       icon: Users,
       iconClass: 'text-panel-green',
     },
     {
       title: 'MEMORY USAGE',
-      value: `${usedMemory} / ${totalMemory} GB`,
-      sub: 'Used / Allocated',
+      value: `${usedMemoryGb} / ${allocatedGb} GB`,
+      sub: 'Genutzt / Zugewiesen',
       icon: Cpu,
       iconClass: 'text-panel-purple',
-      bar: usedMemory / totalMemory,
+      bar: stats && stats.allocatedMb > 0 ? stats.usedMemoryMb / stats.allocatedMb : 0,
       barColor: 'bg-panel-purple',
     },
     {
       title: 'PERFORMANCE',
-      value: '20.0',
-      valueSuffix: ' Avg. TPS',
-      sub: '8.6% CPU',
+      value: String(cpuPct),
+      valueSuffix: '% CPU',
+      sub: 'Gesamt (Server-Prozesse)',
       icon: Gauge,
       iconClass: 'text-panel-orange',
     },
   ];
 
-  const recentActivity = [
-    { text: 'SkyFactory 4 Started', ago: '10m ago', type: 'start' },
-    { text: 'RLCraft Started', ago: '10m ago', type: 'start' },
-    { text: 'TESTER2 Started', ago: '10m ago', type: 'start' },
-  ];
+  function formatAgo(iso: string) {
+    const d = new Date(iso);
+    const sec = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (sec < 60) return 'gerade eben';
+    if (sec < 3600) return `vor ${Math.floor(sec / 60)} Min.`;
+    if (sec < 86400) return `vor ${Math.floor(sec / 3600)} Std.`;
+    return `vor ${Math.floor(sec / 86400)} Tagen`;
+  }
 
   return (
     <div className="min-h-screen">
@@ -112,7 +144,7 @@ export default function DashboardPage() {
               Dashboard
             </h1>
             <p className="mt-1 text-sm text-panel-muted">
-              Monitor and manage your Minecraft server infrastructure
+              Überblick über deine Minecraft-Server-Infrastruktur
             </p>
           </div>
           <div className="flex gap-2">
@@ -122,15 +154,15 @@ export default function DashboardPage() {
               disabled={refreshing}
               className="flex items-center gap-2 rounded-lg border border-panel-border bg-panel-card px-4 py-2 text-sm text-white hover:bg-panel-border/50 disabled:opacity-50"
             >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
+              <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
+              Aktualisieren
             </button>
             <Link
               href="/servers/new"
               className="flex items-center gap-2 rounded-lg bg-panel-accent px-4 py-2 text-sm font-medium text-white hover:bg-panel-accent-hover"
             >
               <Plus className="h-4 w-4" />
-              New Server
+              Neuer Server
             </Link>
           </div>
         </div>
@@ -156,13 +188,13 @@ export default function DashboardPage() {
                     </p>
                     <p className="text-sm text-panel-muted">{m.sub}</p>
                   </div>
-                  <Icon className={`h-8 w-8 shrink-0 ${m.iconClass}`} />
+                  <Icon className={cn('h-8 w-8 shrink-0', m.iconClass)} />
                 </div>
                 {m.bar != null && (
                   <div className="mt-3 h-2 overflow-hidden rounded-full bg-panel-border">
                     <div
-                      className={`h-full ${m.barColor}`}
-                      style={{ width: `${m.bar * 100}%` }}
+                      className={cn('h-full', m.barColor)}
+                      style={{ width: `${Math.min(m.bar * 100, 100)}%` }}
                     />
                   </div>
                 )}
@@ -173,14 +205,14 @@ export default function DashboardPage() {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-xl border border-panel-border bg-panel-card p-5">
-            <h2 className="text-lg font-semibold text-white">Server Overview</h2>
-            <p className="text-sm text-panel-muted">Quick status of all your servers</p>
+            <h2 className="text-lg font-semibold text-white">Server-Übersicht</h2>
+            <p className="text-sm text-panel-muted">Status aller Server</p>
             {loading ? (
-              <p className="mt-4 text-sm text-panel-muted">Loading…</p>
+              <p className="mt-4 text-sm text-panel-muted">Laden…</p>
             ) : (
               <div className="mt-4 space-y-3">
                 {servers.length === 0 ? (
-                  <p className="text-sm text-panel-muted">Noch keine Server. Erstelle einen mit „New Server“.</p>
+                  <p className="text-sm text-panel-muted">Noch keine Server. Erstelle einen mit „Neuer Server“.</p>
                 ) : (
                   servers.map((s) => {
                     const dotColor = s.status === 'running' ? 'fill-panel-green text-panel-green' : s.status === 'stopping' || s.status === 'starting' ? 'fill-amber-400 text-amber-400' : 'fill-panel-red text-panel-red';
@@ -191,13 +223,13 @@ export default function DashboardPage() {
                         className="flex items-center justify-between rounded-lg border border-panel-border bg-panel-bg p-3 transition-colors hover:border-panel-accent/50"
                       >
                         <div className="flex items-center gap-2">
-                          <Circle className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotColor}`} />
+                          <Circle className={cn('h-2.5 w-2.5 shrink-0 rounded-full', dotColor)} />
                           <div>
                             <p className="font-medium text-white">{s.name}</p>
                             <p className="flex items-center gap-1.5 text-xs text-panel-muted">
                               {s.version}
                               <span className="text-panel-muted">·</span>
-                              <Circle className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
+                              <Circle className={cn('h-1.5 w-1.5 rounded-full', dotColor)} />
                               {s.players}
                               <span className="text-panel-muted">·</span>
                               <Zap className="h-3 w-3 text-amber-400" />
@@ -219,49 +251,44 @@ export default function DashboardPage() {
           <div className="rounded-xl border border-panel-border bg-panel-card p-5">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">Recent Activity</h2>
-                <p className="text-sm text-panel-muted">Latest server events and actions</p>
+                <h2 className="text-lg font-semibold text-white">Letzte Aktivität</h2>
+                <p className="text-sm text-panel-muted">Server-Ereignisse und Aktionen</p>
               </div>
               <button
                 type="button"
-                onClick={() => window.location.href = '/servers?tab=activity'}
+                onClick={() => fetchData()}
                 className="flex items-center gap-1 text-sm text-panel-accent hover:underline"
               >
-                View All
+                Aktualisieren
                 <ExternalLink className="h-3.5 w-3.5" />
               </button>
             </div>
             <ul className="mt-4 space-y-2">
-              {recentActivity.map((a) => (
-                <li
-                  key={a.text}
-                  className="flex items-center gap-3 rounded-lg border border-panel-border/50 bg-panel-bg/50 px-3 py-2"
-                >
-                  <Circle className="h-2 w-2 shrink-0 fill-panel-green text-panel-green" />
-                  <span className="flex-1 text-sm text-white">{a.text}</span>
-                  <span className="text-xs text-panel-muted">{a.ago}</span>
+              {activity.length === 0 ? (
+                <li className="rounded-lg border border-panel-border/50 bg-panel-bg/50 px-3 py-2 text-sm text-panel-muted">
+                  Noch keine Aktivität.
                 </li>
-              ))}
+              ) : (
+                activity.slice(0, 10).map((a) => (
+                  <li
+                    key={a.id}
+                    className="flex items-center gap-3 rounded-lg border border-panel-border/50 bg-panel-bg/50 px-3 py-2"
+                  >
+                    <Circle className="h-2 w-2 shrink-0 fill-panel-green text-panel-green" />
+                    <span className="flex-1 text-sm text-white">{a.text}</span>
+                    <span className="text-xs text-panel-muted">{formatAgo(a.at)}</span>
+                  </li>
+                ))
+              )}
             </ul>
           </div>
         </div>
 
         <div className="grid gap-6 sm:grid-cols-3">
           <div className="rounded-xl border border-panel-border bg-panel-card p-5">
-            <h2 className="text-lg font-semibold text-white">Need Help?</h2>
-            <p className="text-sm text-panel-muted">Get support from our community</p>
+            <h2 className="text-lg font-semibold text-white">Hilfe</h2>
+            <p className="text-sm text-panel-muted">Support und Dokumentation</p>
             <ul className="mt-4 space-y-2">
-              <li>
-                <a
-                  href={DISCORD_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-white hover:text-panel-accent"
-                >
-                  Join Discord Server
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              </li>
               <li>
                 <a
                   href={ISSUES_URL}
@@ -270,7 +297,7 @@ export default function DashboardPage() {
                   className="flex items-center gap-2 text-sm text-white hover:text-panel-accent"
                 >
                   <Bug className="h-4 w-4" />
-                  Report an Issue
+                  Fehler melden
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               </li>
@@ -282,49 +309,49 @@ export default function DashboardPage() {
                   className="flex items-center gap-2 text-sm text-white hover:text-panel-accent"
                 >
                   <FileText className="h-4 w-4" />
-                  Documentation
+                  Dokumentation
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               </li>
             </ul>
           </div>
           <div className="rounded-xl border border-panel-border bg-panel-card p-5">
-            <h2 className="text-lg font-semibold text-white">System Health</h2>
-            <p className="text-sm text-panel-muted">Overall infrastructure status</p>
+            <h2 className="text-lg font-semibold text-white">System</h2>
+            <p className="text-sm text-panel-muted">Panel und Host</p>
             <ul className="mt-4 space-y-2 text-sm">
               <li className="flex items-center gap-2 text-panel-green">
-                <Check className="h-4 w-4 shrink-0" />
-                Services: Operational
+                <Circle className="h-2 w-2 shrink-0 fill-panel-green" />
+                Panel: v{stats?.version ?? '–'}
               </li>
-              <li className="flex items-center gap-2 text-panel-green">
-                <Check className="h-4 w-4 shrink-0" />
-                Network: Connected
+              <li className="flex items-center gap-2 text-panel-muted">
+                <span>Host:</span>
+                <span className="font-mono text-white">{stats?.hostname ?? '–'}</span>
               </li>
               <li className="flex items-center gap-2 text-panel-blue">
                 <HardDrive className="h-4 w-4 shrink-0" />
-                Storage: 19.96 MB / 847.06 GB
+                Speicher: {stats?.diskFree ?? '–'}
               </li>
             </ul>
           </div>
           <div className="rounded-xl border border-panel-border bg-panel-card p-5">
             <h2 className="text-lg font-semibold text-white">Quick Stats</h2>
-            <p className="text-sm text-panel-muted">Server performance metrics</p>
+            <p className="text-sm text-panel-muted">Zusammenfassung</p>
             <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
               <div>
-                <p className="text-panel-muted">Uptime</p>
-                <p className="font-semibold text-white">100%</p>
+                <p className="text-panel-muted">Server aktiv</p>
+                <p className="font-semibold text-white">{activeServers} / {totalServers}</p>
               </div>
               <div>
-                <p className="text-panel-muted">Load</p>
-                <p className="font-semibold text-panel-green">9%</p>
+                <p className="text-panel-muted">CPU</p>
+                <p className="font-semibold text-panel-green">{cpuPct}%</p>
               </div>
               <div>
-                <p className="text-panel-muted">Avg TPS</p>
-                <p className="font-semibold text-white">20.0</p>
-              </div>
-              <div>
-                <p className="text-panel-muted">Players</p>
+                <p className="text-panel-muted">Spieler</p>
                 <p className="font-semibold text-white">{totalPlayers}</p>
+              </div>
+              <div>
+                <p className="text-panel-muted">RAM (genutzt)</p>
+                <p className="font-semibold text-white">{usedMemoryGb} GB</p>
               </div>
             </div>
           </div>

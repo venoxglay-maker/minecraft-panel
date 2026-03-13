@@ -5,14 +5,17 @@ import { Save, X, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type FileEditorProps = {
+  /** Anzeigename (z. B. Dateiname) */
   filename: string;
+  /** Vollständiger Pfad für API (z. B. server.properties oder config/example.cfg) */
+  filePath: string;
   initialContent: string;
   serverSlug: string;
   onClose?: () => void;
   onSaved?: (content: string) => void;
 };
 
-export function FileEditor({ filename, initialContent, serverSlug, onClose, onSaved }: FileEditorProps) {
+export function FileEditor({ filename, filePath, initialContent, serverSlug, onClose, onSaved }: FileEditorProps) {
   const [content, setContent] = useState(initialContent);
   const [saved, setSaved] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -27,7 +30,7 @@ export function FileEditor({ filename, initialContent, serverSlug, onClose, onSa
       const res = await fetch(`/api/servers/${serverSlug}/files`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: filename, content }),
+        body: JSON.stringify({ path: filePath, content }),
       });
       if (!res.ok) throw new Error('Save failed');
       setSaved(true);
@@ -39,7 +42,7 @@ export function FileEditor({ filename, initialContent, serverSlug, onClose, onSa
     } finally {
       setSaving(false);
     }
-  }, [serverSlug, filename, content]);
+  }, [serverSlug, filePath, content]);
 
   const lines = content.split('\n');
   const lineCount = lines.length;

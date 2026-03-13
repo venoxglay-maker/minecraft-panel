@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readServers, writeServers } from '@/lib/dataServer';
 import { getCurrentApiUser, canAccessServer } from '@/lib/authApi';
+import { startServer, stopServer } from '@/lib/minecraftRunner';
+import { appendActivity } from '@/lib/dataServer';
 import type { ServerStatus } from '@/lib/servers';
 
 export async function PATCH(
@@ -19,16 +21,38 @@ export async function PATCH(
   try {
     const body = await req.json();
     const status = body.status as ServerStatus | undefined;
-    if (status && ['running', 'stopped', 'starting', 'stopping', 'installing'].includes(status)) {
-      server.status = status;
-      if (status === 'running') {
-        server.playersOnline = 0;
-      }
-      await writeServers(servers);
-      return NextResponse.json(server);
+    if (!status || !['running', 'stopped', 'starting', 'stopping'].includes(status)) {
+      return NextResponse.json({ message: 'Ungültiger Status.' }, { status: 400 });
     }
-    return NextResponse.json({ message: 'Ungültiger Status.' }, { status: 400 });
-  } catch {
+
+    if (status === 'running') {
+      server.status = 'starting';
+      await writeServers(servers);
+      try {
+        const { pid } = await startServer(slug);
+        server.pid = pid;
+        server.status = 'running';
+        server.playersOnline = 0;
+        await writeServers(servers);
+      } catch (err) {
+        server.status = 'stopped';
+        await writeServers(servers);
+        const msg = err instanceof Error ? err.message : 'Start fehlgeschlagen';
+        return NextResponse.json({ message: msg }, { status: 500 });
+      }
+    }
+
+    if (status === 'stopped') {
+      server.status = 'stopping';
+      await writeServers(servers);
+      await stopServer(slug);
+      server.status = 'stopped';
+      server.pid = undefined;
+      await writeServers(servers);
+    }
+
+    return NextResponse.json(server);
+  } catch (e) {
     return NextResponse.json({ message: 'Ungültige Anfrage.' }, { status: 400 });
   }
 }
@@ -46,7 +70,18 @@ export async function DELETE(
   if (index === -1) {
     return NextResponse.json({ message: 'Server nicht gefunden.' }, { status: 404 });
   }
+  await stopServer(slug);
+  const { promises: fs } = await import('fs');
+  const pathMod = await import('path');
+  const dir = pathMod.join(process.cwd(), 'data', 'servers', slug);
+  try {
+    await fs.rm(dir, { recursive: true });
+  } catch {
+    // Verzeichnis vielleicht schon weg
+  }
+  const deletedName = servers[index].name;
   servers.splice(index, 1);
   await writeServers(servers);
+  await appendActivity({ text: `Server „${deletedName}“ gelöscht`, slug, type: 'delete' });
   return NextResponse.json({ ok: true });
 }
