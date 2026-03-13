@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --panel-bg: #0f0f0f;
+  --panel-card: #1a1a1a;
+  --panel-border: #2d2d2d;
+  --panel-muted: #6b6b6b;
+  --panel-accent: #8b6914;
+  --panel-accent-hover: #a67c1a;
+  --panel-green: #22c55e;
+  --panel-red: #ef4444;
+}
+
+body {
+  background: var(--panel-bg);
+  color: #e5e5e5;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+::-webkit-scrollbar-thumb {
+  background: #3d3d3d;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4d4d4d;
+}
+
+/* Console / code font */
+.font-mono {
+  font-feature-settings: normal;
+}
+
+/* File editor modal */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+.file-modal-backdrop {
+  animation: fadeIn 0.15s ease-out;
+}
+.file-modal-content {
+  animation: scaleIn 0.2s ease-out;
+}
+
+/* Server tab wechsel – flüssiger Übergang */
+@keyframes tabFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.server-tab-content {
+  animation: tabFadeIn 0.2s ease-out;
+}

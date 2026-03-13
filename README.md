@@ -1,93 +1,60 @@
-## DiscoPanel – Minecraft Server Management Panel
+# LaxPanel – Minecraft Server Manager
 
-DiscoPanel ist ein selbstgehostetes Panel zur Verwaltung von Minecraft-Server-Infrastruktur.  
-Es kombiniert Features von Pterodactyl, AMP, Multicraft und Crafty und bietet eine moderne UI mit Fokus auf Modpacks, Monitoring und Multi-Server-Management.
+Modernes Minecraft-Server-Management-Panel (dunkles Theme, braune Akzente).
 
-### Features (Stand: MVP)
+## Features
 
-- Backend-API (Node.js + Express, TypeScript, PostgreSQL, Redis)
-- Authentifizierung mit JWT Access + Refresh Tokens (Sessions in der DB)
-- Server-API:
-  - Server anlegen (inkl. Docker-Provisionierung pro Server-Container)
-  - Server-Liste, Power-Actions (start/stop/restart/kill)
-- Datei-API:
-  - Directory-Listing, Datei lesen/schreiben
-  - Verzeichnisse anlegen, Umbenennen, Löschen
-  - Upload (Multipart), ZIP-Archive erstellen und entpacken
-- Dashboard-API:
-  - Summary (Total Servers, Running Servers, Players Online)
-- WebSockets:
-  - Live-Konsole & CPU/RAM-Metriken pro Server (`/ws/server/:id`)
-- Frontend (React + Vite + TailwindCSS) mit:
-  - Dashboard-Screen im Stil der Mockups (mit echten Kennzahlen)
-  - Server-Detailseite mit Live-Konsole, Performance-Karten & Datei-Explorer
-  - Modpack-Browse-Seite (CurseForge-Suche)
-  - einfache User-Übersicht (Admin-only)
-- Docker-basierter Stack (API, Frontend, PostgreSQL, Redis, Minecraft-Server-Volumes)
+- **Dashboard**: Metriken (Server, Spieler, RAM, TPS), Server-Übersicht, Recent Activity, System Health
+- **Servers**: Liste & Detail mit Tabs (Overview, Console, Config, Mods, **Files**, Routing)
+- **Modpacks**: Suche über **Modrinth API**, Karten-Layout, „Use in Server“
+- **Datei-Editor**: `server.properties` (und andere Dateien) anzeigen & bearbeiten, Speichern per API
+- **Settings**: Routing (Proxy, Base Domain, Listeners), Server Defaults, Authentication
 
-### Schnellstart (Entwicklung)
+## Tech Stack
 
-1. **Abhängigkeiten installieren**
+- **Next.js 14** (App Router), **React 18**, **TypeScript**, **Tailwind CSS**
+- **Modrinth API** (`/api/modrinth/search`) für Modpack-Suche
+- **API** `/api/servers/[slug]/files` (GET/PUT) für Datei-Lesen/Schreiben
+
+## Start
 
 ```bash
-cd backend
 npm install
-cd ../frontend
-npm install
-```
-
-2. **Docker-Services starten (DB + Redis)**
-
-```bash
-docker compose up -d postgres redis
-```
-
-3. **Backend entwickeln**
-
-```bash
-cd backend
-cp .env.example .env
 npm run dev
 ```
 
-4. **Frontend entwickeln**
+Panel: [http://localhost:3000](http://localhost:3000)
 
-```bash
-cd frontend
-npm run dev
-```
+## Routen
 
-Das Frontend läuft auf `http://localhost:3000`, die API auf `http://localhost:8080`.
+| Route | Beschreibung |
+|-------|--------------|
+| `/` | Dashboard |
+| `/servers` | Server-Liste |
+| `/servers/[slug]` | Server-Detail (Overview) |
+| `/servers/[slug]/console` | Live-Konsole |
+| `/servers/[slug]/files` | Datei-Editor (z. B. server.properties) |
+| `/modpacks` | Modpacks (Modrinth) |
+| `/settings` | Einstellungen (Routing, etc.) |
+| `/users` | Benutzer |
 
-### Produktion mit Docker Compose
+## Design
 
-```bash
-docker compose build
-docker compose up -d
-```
+- Dunkles Theme (`#0f0f0f`, `#1a1a1a`), Akzentfarbe Braun/Amber (`#8b6914`)
+- Design angelehnt an moderne Panel-UI
 
-### Installation auf Ubuntu 22.04 (Root-Server)
+## Weißer Bildschirm / 404 für main.js, _app.js, react-refresh.js
 
-```bash
-git clone https://github.com/dein-user/discopanel.git
-cd discopanel
-chmod +x install.sh
-sudo ./install.sh
-```
+Wenn nur ein weißer Bildschirm erscheint und in der Konsole 404 für `main.js`, `_app.js`, `_error.js` oder `react-refresh.js`:
 
-Der Installer:
-
-- installiert Docker + docker-compose-plugin (falls nötig)
-- richtet UFW-Firewall-Regeln ein (22, 80, 443, 8080, 25565–25665)
-- startet den Docker-Stack via `docker compose up -d`
-- richtet einen Systemd-Service `discopanel.service` ein (Autostart beim Boot)
-
-Frontend ist anschließend unter `http://<dein-server>:3000` erreichbar, die API unter `http://<dein-server>:8080`.
-
-### Entwicklung & Tests
-
-- Entwicklung siehe Abschnitt „Schnellstart (Entwicklung)“.
-- Basis-Tests können mit Node.js Test Runner ergänzt werden (z. B. für Auth- und Server-Routen); ein vollständiger Test-Suite-Aufbau ist vorgesehen, aber noch nicht abgeschlossen.
-
-Weitere Details zur Architektur findest du in `ARCHITECTURE.md`.
-
+1. **Build-Cache löschen und neu starten**
+   ```bash
+   npm run clean
+   npm run dev
+   ```
+2. **Seite im Browser:** Strg+Shift+R (Hard Reload) oder **inkognito** öffnen und [http://localhost:3000](http://localhost:3000) aufrufen.
+3. **Production:** Nach Änderungen immer erst neu bauen, dann starten:
+   ```bash
+   npm run clean:build
+   npm run start
+   ```
