@@ -58,11 +58,15 @@
    echo "SESSION_SECRET=$(openssl rand -hex 32)" > .env.local
    ```
 
-7. **Panel starten**
+7. **Panel starten (hört auf alle IPs, nicht nur localhost)**
    ```bash
    npm run start
    ```
-   Das Panel hört auf **alle Schnittstellen** (0.0.0.0), Port **3000**. Im Browser von außen: `http://DEINE-SERVER-IP:3000` (nicht localhost).
+   Falls es nur unter localhost erreichbar ist, explizit so starten:
+   ```bash
+   HOSTNAME=0.0.0.0 npx next start -p 3000
+   ```
+   Im Browser von außen: **http://DEINE-SERVER-IP:3000** (nicht localhost).
 
 8. **Erster Aufruf**
    - Im Browser die Server-IP bzw. Domain aufrufen (z. B. `http://dein-server:3000`).
@@ -94,7 +98,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/opt/laxpanel
-ExecStart=/usr/bin/node node_modules/next/dist/bin/next start
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start --hostname 0.0.0.0 --port 3000
 Restart=on-failure
 Environment=NODE_ENV=production
 Environment=SESSION_SECRET=dein-token

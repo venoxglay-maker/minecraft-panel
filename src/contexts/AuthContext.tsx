@@ -32,8 +32,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
-      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      const res = await fetch('/api/auth/me', { credentials: 'include', signal: controller.signal });
+      clearTimeout(timeout);
       if (res.ok) {
         const data = await res.json();
         setUser(data);
@@ -43,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       setUser(null);
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   }, []);

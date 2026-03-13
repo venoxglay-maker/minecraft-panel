@@ -38,16 +38,25 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    fetch('/api/auth/setup-done', { credentials: 'include' })
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+      router.replace('/setup');
+    }, 8000);
+    fetch('/api/auth/setup-done', { credentials: 'include', signal: controller.signal })
       .then((r) => r.json())
       .then((data: { setupDone?: boolean }) => {
+        clearTimeout(timeout);
         if (data.setupDone) {
           router.replace('/login');
         } else {
           router.replace('/setup');
         }
       })
-      .catch(() => router.replace('/setup'));
+      .catch(() => {
+        clearTimeout(timeout);
+        router.replace('/setup');
+      });
   }, [pathname, router, user, loading]);
 
   if (!USE_SERVER_AUTH) return <>{children}</>;
