@@ -45,10 +45,12 @@
    npm install
    ```
 
-5. **Produktions-Build**
+5. **Produktions-Build (immer auf dem Server ausführen, nicht .next von woanders kopieren)**
    ```bash
+   rm -rf .next
    npm run build
    ```
+   Bei Fehlern wie `__webpack_modules__[moduleId] is not a function`: `.next` löschen und Build auf dem Server erneut ausführen.
 
 6. **Session-Secret setzen (wichtig für Anmeldung)**  
    Im Projektordner:
@@ -60,7 +62,7 @@
    ```bash
    npm run start
    ```
-   Panel läuft auf **Port 3000**. Im Browser: `http://DEINE-SERVER-IP:3000`
+   Das Panel hört auf **alle Schnittstellen** (0.0.0.0), Port **3000**. Im Browser von außen: `http://DEINE-SERVER-IP:3000` (nicht localhost).
 
 8. **Erster Aufruf**
    - Im Browser die Server-IP bzw. Domain aufrufen (z. B. `http://dein-server:3000`).
